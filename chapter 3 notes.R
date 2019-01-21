@@ -90,6 +90,7 @@ q_10_90 <- quantile(samples$samples, prob = c(0.1, 0.9))
                     xlab("proportion of water (p)")
 
 #rethinking PI function instead of quantiles
+library(rethinking)
 PI(samples$samples, prob = 0.5)
 #highest posterior density interval
 HPDI(samples$samples, prob = 0.5)
@@ -101,3 +102,105 @@ median_qi(samples$samples, .width = c(0.5, 0.8, 0.99))
 mode_hdi(samples$samples, .width = 0.5)
 
 #TYPE 3: point estimates
+    #maximum a posteriori (MAP)
+    d %>%
+          arrange(desc(post)) %>%
+          slice(1)
+    
+    #chainmode 
+     chainmode(samples$samples, adj = 0.01)
+
+    #loss function
+     d %>%
+          mutate(loss = post * abs(0.5-p_grid)) %>%
+          summarise('ex_loss' = sum(loss))
+
+    #applying the function to every possible decision
+     make_loss <- function(our_d) {
+       d %>%
+            mutate(loss = post * abs(our_d - p_grid)) %>%
+            summarise("ex_loss" = sum(loss))
+     }
+
+    #using the map functions in purrr
+     (
+       l <- d %>%
+                  select(p_grid) %>%
+                  rename(decision = p_grid) %>%
+                  mutate(weighted_avg_loss = purrr::map(decision, make_loss)) %>%
+                  unnest()
+     )     
+     
+     #making the graph of the loss function
+     min_loss <- l %>%
+                      filter(ex_loss == min(ex_loss)) %>%
+                      as.numeric()
+     
+     l %>%
+            ggplot(aes(x = decision)) + 
+            geom_ribbon(aes(ymin = 0, ymax = ex_loss), fill = "grey75") +
+            geom_vline(xintercept = min_loss[1], color = "white", linetype = 3) +
+            geom_hline(yintercept = min_loss[2], color = "white", linetype = 3) +
+            ylab("expected proportion loss") +
+            theme(panel.grid = element_blank())
+     
+     #min_loss corresponds to the median of the posterior
+     samples %>%
+                summarise(post_med = median(samples))
+     min_loss[1]     
+
+     #what about a different loss function?
+     #quadratic loss
+     make_loss <- function(our_d) {
+       d %>%
+         mutate(loss = post * abs(our_d - p_grid)^2) %>%
+         summarise("ex_loss" = sum(loss))
+     }
+     
+     #using the map functions in purrr
+     (
+       l <- d %>%
+         select(p_grid) %>%
+         rename(decision = p_grid) %>%
+         mutate(weighted_avg_loss = purrr::map(decision, make_loss)) %>%
+         unnest()
+     )     
+     
+     #making the graph of the loss function
+     min_loss <- l %>%
+       filter(ex_loss == min(ex_loss)) %>%
+       as.numeric()
+     
+     l %>%
+       ggplot(aes(x = decision)) + 
+       geom_ribbon(aes(ymin = 0, ymax = ex_loss), fill = "grey75") +
+       geom_vline(xintercept = min_loss[1], color = "white", linetype = 3) +
+       geom_hline(yintercept = min_loss[2], color = "white", linetype = 3) +
+       ylab("expected proportion loss") +
+       theme(panel.grid = element_blank())
+     
+     #corresponds to the mean of the post\
+     samples %>%
+       summarise(post_mean = mean(samples))
+     min_loss[1] 
+
+     
+#SAMPLING TO SIMULATE PREDICTION
+     tibble(n = 2,
+            p = 0.7,
+            w = 0:2) %>%
+       mutate(density = dbinom(w, size = n, prob = p))
+
+     #setting seed makes results reproducible
+     set.seed(331)
+     rbinom(10, size = 2, prob = 0.7)     
+
+    #generating 100,000 dummy observations
+     n_draws <- 1e5
+     set.seed(331)     
+     d <- tibble(draws = rbinom(n_draws, size = 9, prob = 0.7))     
+     d %>%
+          group_by(draws) %>%
+          count() %>%
+          mutate(proportion = n / nrow(d))
+     
