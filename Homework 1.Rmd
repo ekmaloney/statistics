@@ -213,21 +213,21 @@ less20 <- samples %>% filter(value < 0.2) %>%
             summarise(sum = n()/1e4)
 ```
 
-There is 0.005 posterior probability that lies below p = 0.2. 
+There is .0005 posterior probability that lies below p = 0.2. 
 
 ####3E2
 ```{r}
 more80 <- samples %>% filter(value > 0.8) %>%
             summarise(sum = n()/1e4)
 ```
-There is 0.0112 posterior probability that lies above p = 0.8. 
+There is `r more80` posterior probability that lies above p = 0.8. 
 
 ####3E3
 ```{r}
 bw2080 <- samples %>% filter(value > 0.2 & samples < 0.8) %>%
             summarise(sum = n()/1e4)
 ```
-There is 0.0888 posterior probability that lies between p = 0.2 and p = 0.8. 
+There is `r bw2080` posterior probability that lies between p = 0.2 and p = 0.8. 
 
 ####3E4
 ```{r}
