@@ -191,6 +191,55 @@ bw <- 1 * (0 + 2)
 ```
 If a second card is drawn with a white side face up, the probability that the first card with the black side facing up has black on the other side, is now 0.75. 
 
+###Hard Problems
+####2H1
+```{r}
+priorodds <- 1
+pta <- 0.1
+ptb <- 0.2
+
+postpa <- (pta/ptb)/(pta/ptb + 1)
+postpb <- (ptb/pta)/(ptb/pta + 1)
+
+(ptwins <- postpa * .1 + postpb * .2)
+```
+The probability of her next birth being twins is `r ptwins`.
+
+####2H2
+```{r}
+(postpa <- (pta/ptb)/(pta/ptb + 1))
+```
+The probability that the panda is from species A, assuming that we have only observed the first birth and that is was twins is `r postpa`. 
+
+####2H3
+```{r}
+psa <- 0.9
+psb <- 0.8
+
+priorodds <- 1/2
+
+postodds <- (0.9/0.8) * priorodds
+
+(postprob <- postodds/(postodds + 1))
+```
+The posterior probability that the same panda mother having a singleton infant is from species A is `r postprob`. 
+
+####2H4
+```{r}
+ppa <- 0.8
+ppb <- 1-0.65
+
+lh <- ppa/ppb
+
+priorodds <- postodds
+
+p_odds <- priorodds * lh
+
+(postprobability <- p_odds/(p_odds + 1))
+
+```
+
+
 ## Chapter 3 Homework
 ###Easy Problems
 
@@ -340,5 +389,100 @@ newsim <- tibble(sample = rbinom(1e4, size = 9, prob = samples$samples))
 p69 <- newsim %>% filter(sample == 6) %>%
                   summarise(sum = n()/1e4)
 print(p69)
+```
+
+###Hard Problems
+
+####3H1
+```{r}
+#load data
+library(rethinking)
+data(homeworkch3)
+
+#how many boys / how many children in total
+totalboy <- sum(birth1) + sum(birth2)
+totalchild <- length(birth1) + length(birth2)
+pboy <- totalboy/totalchild
+
+#generating posterior probablity
+n <- 1000
+n_success <- 111
+n_trials <- 200
+
+d <- tibble(p_grid = seq(from = 0, to = 1, length.out = n),
+            prior = 1) %>%
+     mutate(lh = dbinom(n_success, size = n_trials, prob = p_grid),
+            post = lh * prior,
+            post = post/sum(post))
+
+#making plot
+d %>%
+            ggplot(aes(x = p_grid, y = post)) +
+            geom_line(size = 1/10) + 
+            labs(x = "p(boy)",
+                 y = "posterior probability") + ggtitle("Probability of Having a Boy")
+
+max(d$post)
+
+d$p_grid[d$post == max(d$post)]
+```
+
+The parameter value that maximizes the posterior probability is 0.55, which is the proportion of boys seen in the prior dataset. 
+
+####3H2
+
+```{r}
+#drawing samples
+samples <- tibble(samples = sample(d$p_grid, prob = d$post, size = 10000, replace = T)) %>%
+           mutate(sample_n = 1:n())
+
+#90% HPDI
+HPDI(samples$samples, p = c(0.50,0.89, 0.9))
+```
+
+####3H3
+```{r}
+#simulation
+boysim <- tibble(simbirths = rbinom(1e4, size = 200, prob = samples$samples))
+p111 <- boysim %>% filter(simbirths == 111) %>%
+              summarise(sum = n()/1e4)
+
+#visualizing the sim
+ggplot(data = boysim, mapping = aes(x = simbirths)) + geom_line(stat = "count") + 
+  geom_vline(xintercept = 111)
+```
+
+####3H4
+```{r}
+#simulation with only first born
+
+#simulation
+boysim <- tibble(simbirths = rbinom(1e4, size = 100, prob = samples$samples))
+p111 <- boysim %>% filter(simbirths == 51) %>%
+              summarise(sum = n()/1e4)
+
+#visualizing the sim
+ggplot(data = boysim, mapping = aes(x = simbirths)) + geom_line(stat = "count") + 
+  geom_vline(xintercept = 51)
+```
+
+#3H5
+```{r}
+#simulation with number of first born girls
+
+#simulation
+boysim <- tibble(simbirths = rbinom(1e4, size = 49, prob = samples$samples))
+
+#how many boys followed first born girls
+allb <- as.data.frame(cbind(birth1, birth2))
+
+bfg <- allb %>%
+            filter(birth1 == 0) %>%
+            summarise(sum(birth2))
+
+#visualizing the sim
+ggplot(data = boysim, mapping = aes(x = simbirths)) + geom_line(stat = "count") + 
+  geom_vline(xintercept = 39)
+
 ```
 
