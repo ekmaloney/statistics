@@ -244,7 +244,7 @@ p_odds <- priorodds * lh
 ###Easy Problems
 
 
-```{r data}
+```{r data, warning=FALSE}
 p_grid <- seq(from = 0, to = 1, length.out = 1000)
 prior <- rep(1, 1000)
 lh <- dbinom(6, size = 9, prob = p_grid)
@@ -266,15 +266,15 @@ There is .0005 posterior probability that lies below p = 0.2.
 
 ####3E2
 ```{r}
-more80 <- samples %>% filter(value > 0.8) %>%
-            summarise(sum = n()/1e4)
+(more80 <- samples %>% filter(value > 0.8) %>%
+            summarise(sum = n()/1e4))
 ```
 There is `r more80` posterior probability that lies above p = 0.8. 
 
 ####3E3
 ```{r}
-bw2080 <- samples %>% filter(value > 0.2 & samples < 0.8) %>%
-            summarise(sum = n()/1e4)
+(bw2080 <- samples %>% filter(value > 0.2 & samples < 0.8) %>%
+            summarise(sum = n()/1e4))
 ```
 There is `r bw2080` posterior probability that lies between p = 0.2 and p = 0.8. 
 
@@ -329,7 +329,6 @@ d %>%
 #drawing samples
 samples <- tibble(samples = sample(d$p_grid, prob = d$post, size = 10000, replace = T)) %>%
            mutate(sample_n = 1:n())
-head(samples)
 
 #90% HPDI
 HPDI(samples$samples, p = 0.9)
@@ -339,17 +338,16 @@ The 90% HPDI for p is 0.338-0.731.
 ####3M3
 ```{r}
 ppc <- tibble(sample = rbinom(1e4, size = 15, prob = samples$samples))
-p8 <- ppc %>% filter(sample == 8) %>%
-              summarise(sum = n()/1e4)
-
+(p8 <- ppc %>% filter(sample == 8) %>%
+              summarise(sum = n()/1e4))
 ```
 There is  a `p8` probability of getting 8 tosses out of 15. 
 
 ####3M4
 ```{r}
 newsim <- tibble(sample = rbinom(1e4, size = 9, prob = samples$samples))
-p69 <- newsim %>% filter(sample == 6) %>%
-                  summarise(sum = n()/1e4)
+(p69 <- newsim %>% filter(sample == 6) %>%
+                  summarise(sum = n()/1e4))
 ```
 There is a `p69` probability of getting 6 tosses out of 9. 
 
