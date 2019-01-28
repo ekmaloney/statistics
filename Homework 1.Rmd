@@ -13,7 +13,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ## Homework - Chapters 2 and 3
 
-```{r}
+```{r, message=FALSE}
 library(tidyverse)
 library(rethinking)
 library(tidybayes)
@@ -41,8 +41,14 @@ library(tidybayes)
               #standardize post
               post <- upost/sum(upost)
               
-              plot(p_grid, post, type = "b")
+              plot(p_grid, post, type = "b", main = "WWW", xlab = "Proportion of Water", 
+                   ylab = "Posterior Probability")
 
+```
+
+Assuming a flat prior, the grid approximate distribution of the observations WWW indicates that the most likely proportion of water on the globe is 1.
+
+```{r}
     #WWWL
               #define grid
               p_grid <- seq(from = 0, to = 1, length.out = 100)
@@ -60,8 +66,13 @@ library(tidybayes)
               #standardize post
               post <- upost/sum(upost)
               
-              plot(p_grid, post, type = "b")
-              
+              plot(p_grid, post, type = "b", main = "WWWL", xlab = "Proportion of Water", 
+                   ylab = "Posterior Probability")
+```
+
+Assuming a flat prior, the grid approximate distribution of the observations WWWL indicates that the most likely proportion of water on the globe is 0.75.
+
+```{r}
     #LWWLWWW
               #define grid
               p_grid <- seq(from = 0, to = 1, length.out = 100)
@@ -79,8 +90,11 @@ library(tidybayes)
               #standardize post
               post <- upost/sum(upost)
               
-              plot(p_grid, post, type = "b")
+              plot(p_grid, post, type = "b", main = "LWWLWWW", xlab = "Proportion of Water", 
+                   ylab = "Posterior Probability")
 ```
+
+Assuming a flat prior, the grid approximate distribution of the observations LWWLWWW indicates that the most likely proportion of water on the globe is 0.714.
 
 ####2M2
 ```{r}
@@ -89,7 +103,7 @@ library(tidybayes)
               p_grid <- seq(from = 0, to = 1, length.out = 100)
               
               #define prior
-              prior <- ifelse(p_grid < 0.5, 0, 2)
+              prior <- ifelse(p_grid < 0.5, 0, 0.75)
               
               #compute likelihood at each value in the grid
               lh <- dbinom(3, size = 3, prob = p_grid)
@@ -100,14 +114,20 @@ library(tidybayes)
               #standardize post
               post <- upost/sum(upost)
               
-              plot(p_grid, post, type = "b")
+              plot(p_grid, post, type = "b", main = "WWW, New Prior", xlab = "Proportion of Water", 
+                   ylab = "Posterior Probability")
               
-              #WWWL
+```
+
+With a prior of 0 below 0.5 and 0.75 at or above 0.5, the most likely proportion of water is still 1, but now every proportion below 0.5 has a 0 posterior probability. 
+
+```{r}
+#WWWL
               #define grid
               p_grid <- seq(from = 0, to = 1, length.out = 100)
               
               #define prior
-              prior <- ifelse(p_grid < 0.5, 0, 2)
+              prior <- ifelse(p_grid < 0.5, 0, 0.75)
               
               #compute likelihood at each value in the grid
               lh <- dbinom(3, size = 4, prob = p_grid)
@@ -118,14 +138,22 @@ library(tidybayes)
               #standardize post
               post <- upost/sum(upost)
               
-              plot(p_grid, post, type = "b")
+              plot(p_grid, post, type = "b", main = "WWWL, New Prior", 
+                   xlab = "Proportion of Water", 
+                   ylab = "Posterior Probability")
               
-              #LWWLWWW
+  
+```
+
+With a prior of 0 below 0.5 and 0.75 at or above 0.5, the most likely proportion of water is still 0.75, but now every proportion below 0.5 has a 0 posterior probability. 
+
+```{r}
+            #LWWLWWW
               #define grid
               p_grid <- seq(from = 0, to = 1, length.out = 100)
               
               #define prior
-              prior <- ifelse(p_grid < 0.5, 0, 2)
+              prior <- ifelse(p_grid < 0.5, 0, 0.75)
               #prior <- exp(-5*abs(p_grid - 0.5))
               
               #compute likelihood at each value in the grid
@@ -137,8 +165,12 @@ library(tidybayes)
               #standardize post
               post <- upost/sum(upost)
               
-              plot(p_grid, post, type = "b")
+              plot(p_grid, post, type = "b", main = "LWWLWWW, New Prior", 
+                   xlab = "Proportion of Water", 
+                   ylab = "Posterior Probability")
 ```
+
+With a prior of 0 below 0.5 and 0.75 at or above 0.5, the most likely proportion of water is still 0.714, but now every proportion below 0.5 has a 0 posterior probability. 
 
 ####2M3
 ```{r}
@@ -149,7 +181,8 @@ priorodds <- 1
 postodds <- priorodds*lh
 (post <- postodds/(postodds + 1))
 ```
-The probability of the globe was Earth, given seeing land is `r post`.
+
+The posterior probability that the globe is the Earth, given seeing land is `r post`.
 
 ####2M4
 ```{r}
@@ -159,6 +192,7 @@ bb <- 2
 
 (p <- bb/(bb + bw + ww))
 ```
+
 Given the fact that a card with two white sides cannot produce a black side facing up, a black and white card can produce a black side facing up 1 way, and a card with two black sides can produce a black side facing up two ways, the probablity that the other side of a card with a black face up is 2/3. 
 
 ####2M5
@@ -169,6 +203,7 @@ bb <- 2*2
 
 (p <- bb/(bb + bw + ww))
 ```
+
 If there are two cards that have black on both sides, the probability that a card with a black side facing up also has black on the other side is now 4/5. 
 
 ####2M6
@@ -179,7 +214,8 @@ bb <- 2
 
 (p <- bb/(bb + bw + ww))
 ```
-If there are two ways to pull out a black and white card and 3 ways to pull out a white and white card for every way to pull out a black and black card, the probability that the other side is black is now 1/2. 
+
+If there are two ways to pull out a black and white card and 3 ways to pull out a white and white card for every way to pull out a black and black card, the probability that the other side of the drawn black card is black is now 1/2. 
 
 ####2M7
 ```{r}
@@ -189,6 +225,7 @@ bw <- 1 * (0 + 2)
 
 (p <- bb/(bb + bw + ww))
 ```
+
 If a second card is drawn with a white side face up, the probability that the first card with the black side facing up has black on the other side, is now 0.75. 
 
 ###Hard Problems
@@ -203,12 +240,14 @@ postpb <- (ptb/pta)/(ptb/pta + 1)
 
 (ptwins <- postpa * .1 + postpb * .2)
 ```
+
 The probability of her next birth being twins is `r ptwins`.
 
 ####2H2
 ```{r}
 (postpa <- (pta/ptb)/(pta/ptb + 1))
 ```
+
 The probability that the panda is from species A, assuming that we have only observed the first birth and that is was twins is `r postpa`. 
 
 ####2H3
@@ -222,6 +261,7 @@ postodds <- (0.9/0.8) * priorodds
 
 (postprob <- postodds/(postodds + 1))
 ```
+
 The posterior probability that the same panda mother having a singleton infant is from species A is `r postprob`. 
 
 ####2H4
@@ -231,6 +271,10 @@ ppb <- 1-0.65
 
 lh <- ppa/ppb
 
+#no birth data, prior = 1
+(pprob <- lh/(lh + 1))
+
+#with birth data as prior
 priorodds <- postodds
 
 p_odds <- priorodds * lh
@@ -239,12 +283,16 @@ p_odds <- priorodds * lh
 
 ```
 
+Without using the prior birth data, the posterior probability that the panda is species A, given the positive test result, is `r pprob`. 
+
+When incorporating the prior birth data, the posterior probability that the panda is species A, given the positive test result, is `r postprobability`.
 
 ## Chapter 3 Homework
 ###Easy Problems
 
 
 ```{r data, warning=FALSE}
+#drawing the data 
 p_grid <- seq(from = 0, to = 1, length.out = 1000)
 prior <- rep(1, 1000)
 lh <- dbinom(6, size = 9, prob = p_grid)
@@ -258,8 +306,8 @@ samples <- as_tibble(samples)
 ####3E1
 
 ```{r}
-less20 <- samples %>% filter(value < 0.2) %>%
-            summarise(sum = n()/1e4)
+(less20 <- samples %>% filter(value < 0.2) %>%
+            summarise(sum = n()/1e4))
 ```
 
 There is .0005 posterior probability that lies below p = 0.2. 
@@ -269,6 +317,7 @@ There is .0005 posterior probability that lies below p = 0.2.
 (more80 <- samples %>% filter(value > 0.8) %>%
             summarise(sum = n()/1e4))
 ```
+
 There is `r more80` posterior probability that lies above p = 0.8. 
 
 ####3E3
@@ -276,24 +325,28 @@ There is `r more80` posterior probability that lies above p = 0.8.
 (bw2080 <- samples %>% filter(value > 0.2 & samples < 0.8) %>%
             summarise(sum = n()/1e4))
 ```
+
 There is `r bw2080` posterior probability that lies between p = 0.2 and p = 0.8. 
 
 ####3E4
 ```{r}
-quantile(samples$value, p = 0.2)
+(quant <- quantile(samples$value, p = 0.2))
 ```
-20% of the posterior probability lies below p = 0.52. 
+
+20% of the posterior probability lies below p = `r quant`. 
 
 ####3E5
 ```{r}
-quantile(samples$value, p = 0.8)
+(quant <- quantile(samples$value, p = 0.8))
 ```
-20% of the posterior probability lies above p = 0.757. 
+
+20% of the posterior probability lies above p = `r quant`. 
 
 ####3E6
 ```{r}
 HPDI(samples$value, p = 0.66)
 ```
+
 The values of p which contain the narrowest interval equal to 66% of the posterior probability are 0.521 and 0.785. 
 
 ####3E7
@@ -301,7 +354,8 @@ The values of p which contain the narrowest interval equal to 66% of the posteri
 quantile(samples$value, p = 0.83)
 quantile(samples$value, p = 0.17)
 ```
-The values of p which contain 66% of the posterior probability, assuming equal posterior probability both below and above the interval are 0.500 and 0.769. 
+
+The values of p which contain 66% of the posterior probability, assuming equal posterior probability both below and above the interval, are 0.500 and 0.769. 
 
 ###Medium Problems
 
@@ -320,9 +374,11 @@ d <- tibble(p_grid = seq(from = 0, to = 1, length.out = n),
 d %>%
             ggplot(aes(x = p_grid, y = post)) +
             geom_line(size = 1/10) + 
-            labs(x = "p(water)",
-                 y = "posterior probability") + ggtitle("8 Water in 15 Tosses")
+            labs(x = "Proportion Water",
+                 y = "Posterior Probability") + ggtitle("8 Water in 15 Tosses")
 ```
+
+Assuming a flat prior and given an observation of 8 water out of 15 tosses, the posterior distribution for the proportion of water is centered around 0.533. 
 
 ####3M2
 ```{r}
@@ -333,6 +389,7 @@ samples <- tibble(samples = sample(d$p_grid, prob = d$post, size = 10000, replac
 #90% HPDI
 HPDI(samples$samples, p = 0.9)
 ```
+
 The 90% HPDI for p is 0.338-0.731. 
 
 ####3M3
@@ -341,7 +398,8 @@ ppc <- tibble(sample = rbinom(1e4, size = 15, prob = samples$samples))
 (p8 <- ppc %>% filter(sample == 8) %>%
               summarise(sum = n()/1e4))
 ```
-There is  a `p8` probability of getting 8 tosses out of 15. 
+
+Using data simulated from the model's posterior distribution, there is  a `r p8` probability of getting 8 tosses out of 15. 
 
 ####3M4
 ```{r}
@@ -349,16 +407,18 @@ newsim <- tibble(sample = rbinom(1e4, size = 9, prob = samples$samples))
 (p69 <- newsim %>% filter(sample == 6) %>%
                   summarise(sum = n()/1e4))
 ```
-There is a `p69` probability of getting 6 tosses out of 9. 
+
+There is a `r p69` probability of getting 6 tosses out of 9. 
 
 ####3M5
 ```{r}
+#new simulation with a prior of 0 below 0.5 and 0.75 at or above 0.5. 
 n <- 1000
 n_success <- 8
 n_trials <- 15
 
 d <- tibble(p_grid = seq(from = 0, to = 1, length.out = n),
-            prior = ifelse(p_grid < 0.5, 0, 2)) %>%
+            prior = ifelse(p_grid < 0.5, 0, 0.75)) %>%
      mutate(lh = dbinom(n_success, size = n_trials, prob = p_grid),
             post = lh * prior,
             post = post/sum(post))
@@ -366,28 +426,39 @@ d <- tibble(p_grid = seq(from = 0, to = 1, length.out = n),
 d %>%
             ggplot(aes(x = p_grid, y = post)) +
             geom_line(size = 1/10) + 
-            labs(x = "p(water)",
-                 y = "posterior probability") + ggtitle("8 Water in 15 Tosses, new Prior")
+            labs(x = "Proportion Water",
+                 y = "Posterior Probability") + ggtitle("8 Water in 15 Tosses, new Prior")
 
 #drawing samples
 samples <- tibble(samples = sample(d$p_grid, prob = d$post, size = 10000, replace = T)) %>%
            mutate(sample_n = 1:n())
 
 #90% HPDI
-HPDI(samples$samples, p = 0.9)
+hpdi90 <- HPDI(samples$samples, p = 0.9)
+print(hpdi90)
 
 #posterior predictive check
 ppc <- tibble(sample = rbinom(1e4, size = 15, prob = samples$samples))
-p8 <- ppc %>% filter(sample == 8) %>%
+newp8 <- ppc %>% filter(sample == 8) %>%
               summarise(sum = n()/1e4)
-print(p8)
+print(newp8)
 
 #probability of observing 6 water in 9 tosses
 newsim <- tibble(sample = rbinom(1e4, size = 9, prob = samples$samples))
-p69 <- newsim %>% filter(sample == 6) %>%
+newp69 <- newsim %>% filter(sample == 6) %>%
                   summarise(sum = n()/1e4)
-print(p69)
+print(newp69)
 ```
+
+Using a prior of 0 below 0.5 and 0.75 at or above 0.5, the new posterior distribution now follows the same general shape as before, but the curve has been cut at 0.5, with all posterior probability to the left of that point being 0. 
+
+The 90% HPDI for the new prior is `r hpdi90`, which is smaller than the previous HPDI, which had been from 0.338 - 0.731. Both of the HPDIs contain the actual proportion of water, 0.7, but the narrower new HPDI range means that more posterior probability is contained in proportions of water closer to 0.7 than in the initial model based on a flat prior.
+
+Running a posterior probability check on the data indicates that the likelihood of observing 8 water out of 15 tosses is `r newp8`, which is higher than the probability calculated from the flat prior example, which had a probability of `r p8`. 
+
+Similarly, using the same simulated data generated from the posterior distribution, the probability of observing 6 water in 9 tosses is `r newp69`, which is much higher than in the simulated data from the flat prior, which was `r p69`. 
+
+Overall, including the prior in this case results in more accurate inferences and a better model of the actual world. 
 
 ###Hard Problems
 
@@ -417,15 +488,16 @@ d <- tibble(p_grid = seq(from = 0, to = 1, length.out = n),
 d %>%
             ggplot(aes(x = p_grid, y = post)) +
             geom_line(size = 1/10) + 
-            labs(x = "p(boy)",
-                 y = "posterior probability") + ggtitle("Probability of Having a Boy")
+            labs(x = "P(Boy)",
+                 y = "Posterior Probability") + ggtitle("Probability of Having a Boy")
 
-max(d$post)
+mdp <- max(d$post)
 
-d$p_grid[d$post == max(d$post)]
+(pmax <- d$p_grid[d$post == mdp])
 ```
 
-The parameter value that maximizes the posterior probability is 0.55, which is the proportion of boys seen in the prior dataset. 
+Assuming a uniform prior, the posterior distribution for the probability fo a birth being a boy is centered around 0.55, which is the proportion of boys seen in the data. Indeed, the parameter value that maximizes the posterior probability is `r pmax`. 
+
 
 ####3H2
 
@@ -435,8 +507,12 @@ samples <- tibble(samples = sample(d$p_grid, prob = d$post, size = 10000, replac
            mutate(sample_n = 1:n())
 
 #90% HPDI
-HPDI(samples$samples, p = c(0.50,0.89, 0.9))
+(hpdisample <- HPDI(samples$samples, p = c(0.50,0.89, 0.97)))
 ```
+
+The 50% HPDI ranges from `r hpdisample[3]` to `r hpdisample[4]`. 
+The 89% HPDI ranges from `r hpdisample[2]` to `r hpdisample[5]`. 
+The 97% HPDI ranges from `r hpdisample[1]` to `r hpdisample[6]`. 
 
 ####3H3
 ```{r}
@@ -447,8 +523,11 @@ p111 <- boysim %>% filter(simbirths == 111) %>%
 
 #visualizing the sim
 ggplot(data = boysim, mapping = aes(x = simbirths)) + geom_line(stat = "count") + 
-  geom_vline(xintercept = 111)
+  geom_vline(xintercept = 111) + ggtitle("Simulation of 200 births") + xlab("Number of Boys") +
+  ylab("Freq Occured in Simulations")
 ```
+
+The model does look like it fits the data well, considering that the distribution of predictions does include the actual observation (indicated by the vertical line at 110) as a central, highly likely outcome. 
 
 ####3H4
 ```{r}
@@ -461,8 +540,11 @@ p111 <- boysim %>% filter(simbirths == 51) %>%
 
 #visualizing the sim
 ggplot(data = boysim, mapping = aes(x = simbirths)) + geom_line(stat = "count") + 
-  geom_vline(xintercept = 51)
+  geom_vline(xintercept = 51) + ggtitle("Simulation of First Borns") + xlab("Number of Boys") +
+  ylab("Freq Occured in Simulations")
 ```
+
+When only simulating first borns, the model does a less accurate job, considering that while the distribution of predictions does include the actual observation (indicated by the vertical line at 51), it is not the most central or likely outcome. It falls a bit to the left of the most likley outcome in the predicted distribution. This means that there are fewer first born boys in the data than our model predicts, indicating that there may be some element not captured by our model. 
 
 #3H5
 ```{r}
@@ -480,7 +562,10 @@ bfg <- allb %>%
 
 #visualizing the sim
 ggplot(data = boysim, mapping = aes(x = simbirths)) + geom_line(stat = "count") + 
-  geom_vline(xintercept = 39)
+  geom_vline(xintercept = 39) + ggtitle("Simulation of Second Births Following First Born Girls") +
+  xlab("Number of Boys") +
+  ylab("Freq Occured in Simulations")
 
 ```
 
+By simulating only second births following first born girls, we can begin to see a possible explanation for why the model works less well when first born and second born gender observations are considered separately. In this case, the actual number of boys following first born girls (39), falls significantly to the right of the central, most likely outcome generated by the model (around 27 boys). This indicates that the sex of first and second births are not independent, and namely, that when people have a female first born, they are likely to want to have a boy next and act accordingly. 
