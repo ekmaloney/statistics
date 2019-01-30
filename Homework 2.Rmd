@@ -1,0 +1,242 @@
+---
+title: "Chapter 4 Exercises"
+author: "Emily Maloney"
+date: "January 28, 2019"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Chapter 4
+
+```{r libraries, message=FALSE}
+library(tidyverse)
+library(brms)
+library(tidybayes)
+```
+
+### Easy Problems
+
+####4E1
+In this model, the likelihood is defined by $y~i$ ~ Normal($\mu$, $\sigma$).
+
+####4E2
+There are 2 parameters in the posterior distribution of this model.
+
+####4E3
+omit
+
+####4E4
+The line describing the linear model is $\mu~i$ = $\alpha$ + $\beta~x~i$.
+
+####4E5
+There are 3 parameters in the posterior distribution of this model. 
+
+###Medium Problems
+
+####4M1
+```{r}
+#sampling from both priors to get simulation of observed heights
+n <- 1e4
+set.seed(432)
+tibble(sample_mu = rnorm(n, mean = 0, sd = 10),
+       sample_sigma = runif(n, min = 0, max = 10)) %>% 
+       mutate(x = rnorm(n, mean = sample_mu, sd = sample_sigma)) %>% 
+       
+       ggplot(aes(x = x)) + 
+       geom_density(fill = "black", size = 0) +
+       labs(subtitle = expression(paste("Prior predictive distribution for ", italic(h[i]))),
+            x = NULL)
+```
+
+####4M2
+The model translated into a map formula is: 
+flist <- alist (
+        y ~ dnorm(mu, sigma),
+        mu ~ dnorm(0, 10),
+        sigma ~ dunif(0, 10)
+)
+
+####4M3
+The map model formula translated into a mathematical model definition is:
+      $y~i$ ~ Normal($\mu$, $\sigma$)  
+      $\mu~i$ = $\alpha$ + $\beta~x~i$  
+      $\alpha$ ~ Normal(0, 50)  
+      $\beta$ ~ Uniform(0, 10)  
+      $\sigma$ ~ Uniform(0, 50)  
+      
+####4M4
+The mathematical model definitions for predicting height using year as a predictor I would use is:  
+      $y~i$ ~ Normal($\mu$, $\sigma$)  
+      $\mu~i$ = $\alpha$ + $\beta~x~i$  
+      $\alpha$ ~ Normal(107, 10) #assuming kindergarten-3rd grade so ~ 3.5 feet tall mean?  
+      $\beta$ ~ Normal(7, 2) #how many inches grow each year, assuming 3 inches and 1 std dev?  
+      $\sigma$ ~ Uniform(0, 50)  
+
+####4M5
+I would not change my prior, because that is the data. 
+
+####4M6
+I would change the specification for $\sigma$ to $\sigma$ ~ Uniform(0, 64).
+
+###Hard Problems
+
+####4H1
+```{r}
+library(rethinking)
+library(tidyverse)
+library(knitr)
+data(Howell1) # load in data
+
+d <- Howell1
+#d2 <- d %>% filter(age >= 18) # filter to only adults
+
+#fit model
+mhw.1 <- map(alist(
+             height ~ dnorm(mu, sigma),
+             mu <- a + b*weight,
+             a ~ dnorm(156, 100),
+             b ~ dnorm(0, 10),
+             sigma ~ dunif(0, 50)
+            ), 
+         data = d)
+
+#summary call for what's in the model
+precis(mhw.1)
+
+#steve's code
+N <- 1e4 # sample size
+
+# Get predictive means and data
+preds <- 
+  as.tibble(MASS::mvrnorm(mu = mhw.1@coef,
+                          Sigma = mhw.1@vcov , n = N )) %>%      # rather than extract.samples
+  mutate(weight = sample(c(46.95, 43.72, 64.78, 32.59, 54.63), N, replace = T),
+         predmean = a + b * weight ,                            # line uncertainty
+         predverb = rnorm(N, a + b*weight, sigma )) %>%         # data uncertainty
+  group_by(weight) %>% 
+  mutate(lb_mu = rethinking::HPDI(predmean, prob = .89)[1],
+         ub_mu = rethinking::HPDI(predmean, prob = .89)[2],
+         lb_ht = rethinking::HPDI(predverb, prob = .89)[1],
+         ub_ht = rethinking::HPDI(predverb, prob = .89)[2]) %>% 
+  slice(1) %>%
+  mutate(yhat = mhw.1@coef["a"] + mhw.1@coef["b"] * weight) %>%       # yhat for reg line
+  select(weight, yhat, lb_ht, ub_ht)
+
+kable(preds, type = "pandoc", caption = "!Kung Predicted Heights")
+```
+
+####4H2
+  a)
+```{r}
+#filter data to only children
+d3 <- d %>% filter(age < 18)
+
+#fit model
+mhw.2 <- map(alist(
+             height ~ dnorm(mu, sigma),
+             mu <- a + b*weight,
+             a ~ dnorm(156, 100),
+             b ~ dnorm(0, 10),
+             sigma ~ dunif(0, 50)
+            ), 
+         data = d3)
+
+#summary call for what's in the model
+precis(mhw.2)
+
+```
+
+For every 10 units increase in weight, the model predicts that a child will get 27.2 cm taller. 
+
+b)
+```{r}
+#steve's code
+N <- 1e6 # sample size
+
+# Get predictive means and data
+preds <- 
+  as.tibble(MASS::mvrnorm(mu = mhw.2@coef,
+                          Sigma = mhw.2@vcov , n = N )) %>%      # rather than extract.samples
+  mutate(weight = sample(seq(from = 4.25, to = 44.75, by = 0.1), N, replace = T),
+         predmean = a + b * weight ,                            # line uncertainty
+         predverb = rnorm(N, a + b*weight, sigma )) %>%         # data uncertainty
+  group_by(weight) %>% 
+  mutate(lb_mu = rethinking::HPDI(predmean, prob = .89)[1],
+         ub_mu = rethinking::HPDI(predmean, prob = .89)[2],
+         lb_ht = rethinking::HPDI(predverb, prob = .89)[1],
+         ub_ht = rethinking::HPDI(predverb, prob = .89)[2]) %>% 
+  slice(1) %>%
+  mutate(yhat = mhw.2@coef["a"] + mhw.2@coef["b"] * weight) %>%       # yhat for reg line
+  select(weight, yhat, lb_mu, ub_mu, lb_ht, ub_ht)
+
+#plot
+ggplot(d3, aes(x = weight)) +
+  geom_jitter(aes(y = height), alpha = .3) +
+  geom_line(data = preds, aes(y = yhat)) +
+  geom_ribbon(data = preds, aes(ymin = lb_mu, ymax = ub_mu), alpha = .3) +
+  geom_ribbon(data = preds, aes(ymin = lb_ht, ymax = ub_ht), alpha = .2) +
+  labs(x = "Weight",
+       y = "Height",
+       title = "Predicted Height of !Kung Children")
+
+```
+
+c)
+* seems curvilinear, maybe should add a squared term
+
+####4H3
+```{r}
+#add variable of log weight
+d <- d%>% mutate(logweight = log(weight))
+
+#fit model
+mhw.3 <- map(alist(
+             height ~ dnorm(mu, sigma),
+             mu <- a + b*logweight,
+             a ~ dnorm(178, 100),
+             b ~ dnorm(0, 10),
+             sigma ~ dunif(0, 50)
+            ), 
+         data = d)
+
+#summary call for what's in the model
+precis(mhw.3)
+```
+
+b)
+```{r}
+#steve's code
+N <- 1e6 # sample size
+
+# Get predictive means and data
+preds <- 
+  as.tibble(MASS::mvrnorm(mu = mhw.3@coef,
+                          Sigma = mhw.3@vcov , n = N )) %>%      # rather than extract.samples
+  mutate(logweight = sample(seq(from = 1.4, to = 4.15, by = 0.01), N, replace = T),
+         predmean = a + b * logweight,                            # line uncertainty
+         predverb = rnorm(N, a + b*logweight, sigma )) %>%         # data uncertainty
+  group_by(logweight) %>% 
+  mutate(lb_mu = rethinking::HPDI(predmean, prob = .89)[1],
+         ub_mu = rethinking::HPDI(predmean, prob = .89)[2],
+         lb_ht = rethinking::HPDI(predverb, prob = .89)[1],
+         ub_ht = rethinking::HPDI(predverb, prob = .89)[2]) %>% 
+  slice(1) %>%
+  mutate(yhat = mhw.3@coef["a"] + mhw.3@coef["b"] * logweight) %>%       # yhat for reg line
+  select(logweight, yhat, lb_mu, ub_mu, lb_ht, ub_ht)
+
+#plot
+ggplot(data = d, aes(x = logweight)) +
+  geom_jitter(aes(y = height), alpha = .3) +
+  geom_line(data = preds, aes(y = yhat)) +
+  geom_ribbon(data = preds, aes(ymin = lb_mu, ymax = ub_mu), alpha = .3) +
+  geom_ribbon(data = preds, aes(ymin = lb_ht, ymax = ub_ht), alpha = .2) +
+  labs(x = "Log Weight",
+       y = "Height",
+       title = "Predicted Height of !Kung, by Log Weight")
+```
+
