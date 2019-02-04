@@ -1,0 +1,22 @@
+---
+title: "Homework 3"
+author: "Emily Maloney"
+date: "February 4, 2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Chapter 5 Homework
+
+```{r libraries}
+library(rethinking)
+library(tidyverse)
+```
+
+### Easy Problems
+
+####5E1
+
