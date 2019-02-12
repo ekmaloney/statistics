@@ -1,0 +1,48 @@
+---
+title: "Chapter 6 Homework"
+author: "Emily Maloney"
+date: "February 11, 2019"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Chapter 6 Homework
+
+```{r libraries}
+library(rethinking)
+library(tidyverse)
+```
+
+### Easy problems
+
+####6E1  
+The three motivating criteria that define information entropy are:  
+a) it should be a continuous measure such that it is not sensitive to small changes  
+b) it should always increase as the number of possible things that could occur (events) increases, because this necessarily makes accuracy more difficult  
+c) if the number of possible events is greater than two, it should be additive in its approach - i.e. it should sum all of the separate pairs of uncertainties.  
+
+####6E2
+```{r}
+p <- c(0.7,0.3) 
+(e <- -sum( p*log(p) ))
+```
+The entropy of this coin is `r e`. 
+
+####6E3
+```{r}
+p <- c(0.2, 0.25, 0.25, 0.3) 
+(e <- -sum( p*log(p) ))
+```
+The entropy of this die is `r e`. 
+
+####6E4
+```{r}
+p <- c(1/3, 1/3, 1/3) 
+(e <- -sum( p*log(p) ))
+```
+The entropy of this die is `r e`. 
