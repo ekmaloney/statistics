@@ -1,0 +1,31 @@
+---
+title: "Chapter 7 Homework"
+author: "Emily Maloney"
+date: "February 18, 2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+##Chapter 7 Homework
+
+###Easy Problems
+
+####7E1
+1. A hypothetical third variable that would lead to an interaction effect for the relationship "bread dough rises because of yeast" is the temperature of the oven.  
+2. A hypothetical third variable that would lead to an interaction effect for the relationship "education leads to a higher income" is gender.  
+3. A hypothetical third variable that would lead to an interaction effect for the relationship "gasoline makes a car go" is the type of car.  
+
+####7E2
+The following explanations that invoke an interaction are:  
+2. A car will go faster when it has more cylinders or when it has a better fuel injector.  
+3. Most people acquire their political belifs from their parents, unless they get them instead from their friends.  
+4. Intelligent animal species tend to be either highly soical or have manipulative appendages (hands, tentacles, etc.)  
+
+####7E3
+1. $caramelizing~i$ = $\alpha$ + $\beta(Heat)~x~i$ + $\beta(Dry)~x~i$  
+2. $speed~i$ = $\alpha$ + $\beta(cyl)~x~i$ + $\beta(fuel)~x~i$ + $\beta(cyl * fuel)~x~i$  
+3. $beliefs~i$ = $\alpha$ + $\beta(parent)~x~i$ + $\beta(friend)~x~i$ + $\beta(parent * friend)~x~i$  
+4. $intelligence~i$ = $\alpha$ + $\beta(social)~x~i$ + $\beta(manip)~x~i$ + $\beta(social * manip)~x~i$
