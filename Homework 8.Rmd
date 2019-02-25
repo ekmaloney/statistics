@@ -1,0 +1,37 @@
+---
+title: "Homework 8"
+author: "Emily Maloney"
+date: "February 25, 2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Chapter 8 Homework  
+
+###Easy Problems  
+
+####8E1
+The requirement of the simple Metropolis algorithm is:  
+(3) The proposal distribution must be symmetric.  
+
+####8E2  
+Gibbs sampling achieves greater efficiency than the Metropolis algorithm because it uses adaptive proposals. In other words, it intelligently updates the proposed posterior distribution by using conjugate pairs of elements from the prior distributions and likelihoods. These pairs each have a solutions for the structure of the posterior distribution that guide the algorithm as it moves through the posterior distributions.  
+
+####8E3  
+The Hamiltonian Monte Carlo cannot handle discrete parameters, because discrete parameters would require distinct steps rather than moving continuously according to rates.  
+
+####8E4  
+The actual number of samples is the number of complete cases in your data set. The effective number of samples is the number of independent samples, meaning that they are not autocorrelated with other samples in the Markov chain.   
+
+####8E5  
+Rhat should approach 1.00 when a chain is sampling the posterior distribution correctly.  
+
+####8E6  
+A healthy trace plot of a chain has two elements. First, they exhibit stationarity, meaning that the traces fall around a central value inside of the posterior distribution. Second, they show good mixing, in that the start value of a trace is not correlated with the one that came previously, providing the zig-zag shape seen in the sketch below on the left.  
+
+An unhealthy trace plot can be identified by the wandering nature of the trace. It is not centered around the mean value but instead jumps from high to low and back to high values. Additionally, it seems as though the successive samples are correlated with previous ones, such that the trace gets "stuck" and doesn't show random mixing. Both of these elements are illustrated in the sketch on the right side of the image below. 
+
+![Trace Plots](trace_plots.jpg)
