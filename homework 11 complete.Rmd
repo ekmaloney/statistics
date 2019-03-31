@@ -1,0 +1,712 @@
+---
+title: "Homework Chapter 11"
+author: "Emily Maloney"
+date: "March 24, 2019"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, message = FALSE}
+library(tidyverse)
+library(rethinking)
+library(brms)
+library(knitr)
+library(bayesplot)
+```
+
+
+## Chapter 11  
+
+###Easy Problems  
+  
+####11E1  
+An ordered categorical variable is one in which the points on the scale correspond to levels while an unordered categorical variable's elements cannot be ranked against each other. An example of an ordered categorical variable is grades (A, B, C, D, F), and an example of an unordered categorical variable is sex (Male, Female, Intersex).  
+
+####11E2  
+An ordered logistic regression employs a cumulative logit link, which means that it uses the log-cumulative-odds for each of the ordered outcomes - in other words, the log odds of that value or anything below it on the scale. An unordered logistic regression employs a logit link, which is just the log-odds for the specific outcome. 
+
+####11E3  
+When count data are zero-inflated, using a model that ignores zero-inflation will tend to induce Type I error.  
+
+####11E4  
+An example of a process that might produce over-dispersed counts would be the number of times someone talks in class, because everyone has a different threshold for speaking. An example of a process that might produce under-dispersed counts would be the number of children women have in Scandanavia, because I think the variance would be lower than the expected value.  
+
+###Medium Problems  
+
+####11M1  
+```{r}
+#make dataset with rating and frequency
+d <- tibble(rating = seq(1, 4, by = 1),
+               freq = c(12, 36, 7, 41))
+
+#calculate log cum odds and the previous proportion
+d <- d %>% mutate(total = sum(freq),
+                  cum_sum = cumsum(freq),
+                  cum_prop = cum_sum/total,
+                  cum_odds = cum_prop/(1-cum_prop),
+                  log_cum_odds = log(cum_odds),
+                  prev_prop = lag(cum_prop, default = 0))
+
+#make table of log_cum_odds
+table <- d %>% select(rating, log_cum_odds)
+kable(table)
+
+```
+
+The log-cumulative-odds for getting a rating 1 is `r table$log_cum_odds[1] %>% round(digits = 2)`. For getting a rating of 2, the log-cumulative-odds is `r table$log_cum_odds[2] %>% round(digits = 2)`, and for getting a rating of 3, the log-cumulative-odds is `r table$log_cum_odds[3] %>% round(digits = 2)`. The log-cumulative-odds for the rating 4 is infinite because the cumulative probability of the highest value on the scale is 1, so the odds are 1/(0), which is indefinite. 
+
+####11M2  
+```{r}
+
+#making plot
+ggplot(data = d, mapping = aes(x = rating, y = cum_prop)) +
+  geom_line() +
+  geom_point() +
+  geom_linerange(mapping = aes(ymin = 0, 
+                               ymax = cum_prop), 
+                               alpha = 3/4, 
+                               color = "dark gray",
+                               size = 0.75) +
+  geom_linerange(mapping = aes(x = rating + .015,
+                               ymin = prev_prop, 
+                               ymax = cum_prop), 
+                               color = "blue", 
+                               alpha = 1,
+                               size = 1) +
+  labs(title = "Cumulative Probability of Employee Rating",
+       x = "rating", y = "cumulative proportion")
+
+
+
+```
+
+This plot shows the growing cumulative probability for each rating from 1 to 4 in the gray vertical lines. The blue lines are the discrete probability for each rating and represent the likelihood of each rating. As the plot shows, the ratings 2 and 4 have a much higher likelihood than the ratings 1 or 3. 
+
+####11M3  
+With probability *d* that secondary process produces 0, *n* equal to the number of trials, and *p* the probability of success, the likelihood of a zero result is:  
+$d + (1- d)(1-p)^n$  
+and the likelihood of a non-zero result is:  
+$(1 - d)(p^y)\binom{n}{y}(1-p)^{(n-y)}$. 
+
+To construct this distribution, I simulated each of these processes and then plotted them together, to show how the secondary process inflates the number of zeros in the binomial distribution. 
+
+```{r}
+#defining parameters
+d <- 0.2
+n <- 365 
+p <- 0.2
+
+#simulate days w/no production 
+zero_2 <- rbinom(n, 1, d)
+
+#simulate number completed
+y <- (1-d)*rbinom(n, 10, p)
+y <- as.data.frame(y)
+
+simplehist(y, xlab = "successes", lwd = 4)
+zeros_second <- sum(zero_2)
+zeros_first <- sum(y == 0 & zero_2 == 0)
+zeros_total <- zeros_second + zeros_first
+lines(c(0,0), c(zeros_first, zeros_total), lwd = 4, col = rangi2)
+title(main = "Zero Inflated Binomial Simulation")
+```
+
+In this histogram, the black lines show the typical binomial distribution for the parameters *n* equal to 365 and *p* equal to 0.2, given a trial size of 10. The blue line at 0 represents the number of days in which there were no successes from a secondary process unrelated to the binomial. Including this process inflates the number of expected zeros to even be slightly more than the number of expected ones. 
+
+###Hard problems  
+
+####11H1  
+```{r, message = FALSE}
+#load in data
+data("Hurricanes")
+h <- Hurricanes
+
+#model with just intercept
+h11.1 <- brm(data = h, family = poisson,
+             deaths ~ 1,
+             prior = c(prior(normal(0, 100), class = Intercept)),
+             iter = 3000, warmup = 1000, chains = 4, cores = 4)
+
+#model with femininity predictor
+h11.2 <- update(h11.1,  newdata = h, formula = deaths ~ 1 + femininity,
+                prior = c(prior(normal(0, 100), class = Intercept),
+                          prior(normal(0, 10), class = b)))
+
+#compare estimates
+fixef(h11.1) %>% round(digits = 2)
+fixef(h11.2) %>% round(digits = 2)
+
+
+
+```
+
+The association between femininity of a hurricane's name and death is fairly weak - about 0.07 - but solidly positive, with a 89% interval that does not contain zero. 
+
+```{r}
+#compare WAIC
+waic(h11.1, h11.2)
+
+#weights
+model_weights(h11.1, h11.2,
+              weights = "waic") %>% 
+  round(digits = 2)
+
+```
+
+The model including femininity (h11.2) has a lower WAIC and gets all of the model weight when compared to an intercept-only Poisson model of deaths. This suggests that femininity does have some predictive power, but we should check the model predictions to assess how well (or not well) the model accurately fits different storms.. 
+
+```{r}
+ftd <- fitted(h11.2, probs = c(0.055, 0.945)) %>% 
+       as_tibble() %>% 
+       bind_cols(h11.2$data) %>% 
+       mutate(name = h$name)
+
+ggplot(data = ftd, mapping = aes(x = femininity, y = deaths)) +
+      geom_point(color = "red") + geom_line(mapping = aes(x = femininity, y = Estimate), 
+                                             color = "black") +
+      geom_ribbon(mapping = aes(x = femininity, ymin = Q5.5, ymax = Q94.5)) +
+      geom_text(aes(label=ifelse(deaths >= 75, as.character(name), '')),
+                hjust=0, nudge_y = 3, size = 4) +
+      labs(title = "Predicted death toll of hurricanes by femininity of name",
+           subtitle = "actual death count in red",
+           x = "Femininity", y = "Estimate") +
+      theme(axis.text.x=element_blank(),
+            axis.ticks.x = element_blank())
+
+```
+
+The model does a poor job of estimating especially deadly hurricanes that had greater than or equal to 50 deaths, some of which are labeled on the plot. Additionally, it seems to be over-estimating not very deadly hurricanes, and only accurately capturing hurricanes with a death toll of about 20-24. To account for the likelihood that these counts are over-dispersed, we can fit a gamma-Poisson (negative-binomial) model to predict the same relationship and see what changes. 
+  
+####11H2  
+```{r}
+#gamma-Poisson/negative binomial model
+h11.3 <- brm(data = h, family = negbinomial,
+         deaths ~ 1 + femininity,
+         prior = c(prior(normal(0, 10), class = Intercept),
+              prior(normal(0, 1), class = b)),
+         iter = 3000, warmup = 1000, cores = 2, chains = 2)
+
+fixef(h11.3) %>% round(digits = 2)
+
+#making coefficient plot
+post <- posterior_samples(h11.3)
+
+post %>% 
+select(-lp__) %>% 
+  select(b_femininity) %>% 
+  mcmc_intervals(prob = .5, prob_outer = .89) +
+  theme(axis.ticks.y = element_blank(),
+        axis.text.y  = element_text(hjust = 0))
+
+```
+
+As the coefficient plot shows above, the coefficient for femininity now includes 0 in its 89% percent interval. The association between femininity and deaths decreased when using the gamma-Poisson model because this model assumes that each observation has its own rate, meaning that the model can better account of heterogeneity across cases and thus the standard error of the estimate increases, making significance less likely. 
+
+####11H3
+```{r}
+#std variables so models will actually run 
+h <- h %>% mutate(damage_norm_std = (damage_norm - mean(damage_norm))/sd(damage_norm),
+                  min_pressure_std = (min_pressure - mean(min_pressure))/sd(min_pressure))
+
+#just damage interaction
+h11.4 <- brm(data = h, family = negbinomial,
+         deaths ~ 1 + femininity + damage_norm_std + femininity:damage_norm_std,
+         prior = c(prior(normal(0, 10), class = Intercept),
+              prior(normal(0, 1), class = b)),
+         iter = 3000, warmup = 1000, cores = 2, chains = 2)
+
+#just min pressure interaction
+h11.5 <- update(h11.4, newdata = h,
+                formula = deaths ~ 1 + femininity + min_pressure_std + femininity:min_pressure_std)
+
+#both predictors, one interaction (damage)
+h11.6 <- update(h11.4, newdata = h,
+                formula = deaths ~ 1 + femininity + damage_norm_std + min_pressure_std +
+                femininity:damage_norm_std)
+
+#both predictors, one interaction (pressure)
+h11.7 <- update(h11.4, newdata = h,
+                formula = deaths ~ 1 + femininity + damage_norm_std + min_pressure_std +
+                femininity:min_pressure_std)
+
+#both interactions
+h11.8 <- update(h11.4, newdata = h,
+                formula = deaths ~ 1 + femininity + damage_norm_std + min_pressure_std +
+                femininity:damage_norm_std + femininity:min_pressure_std)
+
+#waic
+waic(h11.4, h11.5, h11.6, h11.7, h11.8)
+
+#weights
+model_weights(h11.4, h11.5, h11.6, h11.7, h11.8, 
+              weights = "waic") %>% 
+  round(digits = 2)
+
+fixef(h11.8) %>% round(digits = 2)
+
+```
+
+I estimated multiple possible combinations of the interactions between minimum pressure and femininity and damage and femininity. To help these models run, I had to standardize both minimum pressure and damage before estimating the models. The model with the lowest WAIC and highest weight was h11.8, the model that included both interactions. However, h11.6, the model with only an interaction between damage and femininity did get a weight of 0.15. Looking at the results for model h11.8, the interactions between femininity and damage and femininity and minimum pressure are both positive, but the 95% interval for femininity and minimum pressure includes 0. Additionally, while the estimate for the effect of femininity is positive, its 95% interval also contains 0 and so does the main effect for damage. To understand these interactions better, I will plot the counterfactual predictions constrasting feminine and masculine names. 
+
+
+```{r}
+min_press_seq <- seq(from = -2, to = 2, by = 0.1)
+
+  #making feminine and masculine data
+  ndf <- tibble(damage_norm_std = 0, min_pressure_std = min_press_seq,
+                femininity = quantile(h$femininity, 0.9))
+  ndm <- tibble(damage_norm_std = 0, min_pressure_std = min_press_seq,
+                femininity = quantile(h$femininity, 0.1))
+  
+  #getting fitted results for each of our new data
+  fitd_f <- 
+    fitted(h11.8, 
+           newdata = ndf,
+           probs = c(0.045, 0.945)) %>%
+    as_tibble() %>%
+    bind_cols(ndf)
+  
+  fitd_m <- 
+    fitted(h11.8, 
+           newdata = ndm,
+           probs = c(0.045, 0.945)) %>% 
+    as_tibble() %>% 
+    bind_cols(ndm)
+  
+  # making plot
+  fig <- 
+    ggplot() +
+    geom_ribbon(data = fitd_f, 
+                aes(x    = min_pressure_std,
+                    ymin = Q4.5,
+                    ymax = Q94.5), 
+                fill = "red", alpha = 1/5) +
+    geom_line(data = fitd_f, 
+              aes(x = min_pressure_std, y = Estimate), 
+              color = "red") +
+    geom_ribbon(data = fitd_m, 
+                aes(x    = min_pressure_std,
+                    ymin = Q4.5,
+                    ymax = Q94.5), 
+                fill = "blue", alpha = 1/5) +
+    geom_line(data = fitd_m, 
+              aes(x = min_pressure_std, y = Estimate), 
+              color = "blue")+
+    scale_x_continuous("Min Pressure (Standardized)", breaks = c(-2, -1, 0, 1, 2)) +
+    coord_cartesian(xlim = -2:2, 
+                    ylim = range(h$deaths)) +
+    labs(title = "Femininity - Minimum Pressure interaction",
+         subtitle = "High femininity in red; Low femininity (more masculine) in blue\neverything else held at its mean")
+  
+  plot(fig)
+
+
+
+```
+
+This plot shows that at low minimum pressure, hurricanes with masculine names have a higher estimated death toll than hurricanes with high feminine names, while at high levels of minimum pressure, hurricanes with feminine names have a higher estimated death toll than hurricanes with masculine names. However, the overall trend shown in both the lines for predicted death toll of masculine and feminine named hurricanes is that as minimum pressure increases, the estimated death toll decreases. 
+
+```{r}
+#plotting opposite way
+damage_seq <- seq(from = -2, to = 2, by = 0.1)
+
+  ndf <- tibble(damage_norm_std = damage_seq, min_pressure_std = 0,
+                femininity = quantile(h$femininity, 0.9))
+  ndm <- tibble(damage_norm_std = damage_seq, min_pressure_std = 0,
+                femininity = quantile(h$femininity, 0.1))
+  
+  fitd_f <- 
+    fitted(h11.8, 
+           newdata = ndf,
+           probs = c(0.045, 0.945)) %>%
+    as_tibble() %>%
+    bind_cols(ndf)
+  
+  fitd_m <- 
+    fitted(h11.8, 
+           newdata = ndm,
+           probs = c(0.045, 0.945)) %>% 
+    as_tibble() %>% 
+    bind_cols(ndm)
+  
+  #plot
+  fig <- 
+    ggplot() +
+    geom_ribbon(data = fitd_f, 
+                aes(x    = damage_norm_std,
+                    ymin = Q4.5,
+                    ymax = Q94.5), 
+                fill = "red", alpha = 1/5) +
+    geom_line(data = fitd_f, 
+              aes(x = damage_norm_std, y = Estimate), 
+              color = "red") +
+    geom_ribbon(data = fitd_m, 
+                aes(x    = damage_norm_std,
+                    ymin = Q4.5,
+                    ymax = Q94.5), 
+                fill = "blue", alpha = 1/5) +
+    geom_line(data = fitd_m, 
+              aes(x = damage_norm_std, y = Estimate), 
+              color = "blue")+
+    scale_x_continuous("Damage (Standardized)", breaks = c(-2, -1, 0, 1, 2)) +
+    coord_cartesian(xlim = -2:2, 
+                    ylim = range(h$deaths)) +
+    labs(title = "Femininity - Damage Interaction",
+         subtitle = "High femininity in red; Low femininity (more masculine) in blue\neverything else held at its mean")
+  
+  plot(fig)
+
+```
+
+The interaction between femininity and damage shows a more drastic difference between more and less feminine names. As damage increases, the death toll for feminine names seems to be growing at an exponential rate while for masculine names, there is only a slightly positive relationship between damage and the estimated death toll. 
+
+One note of concern is that the difference in death estimate between a name with a high femininity score and a low femininity score is extremely large when damage is also high, reaching well over 100 deaths above a standardized damage score of 1.5. These effect sizes hardly seem plausible, given what we know about hurricanes and how damage itself is related to death toll. It is possible that using the logarithm of storm damage is a better indicator of the relationship between damage and death rate. To test this idea, we can re-estimate this model with log(damage) and see which model performs the best. 
+
+####11H4 
+```{r}
+#using log(damage_norm)
+h <- h %>% mutate(log_damage = log(damage_norm))
+
+h11.9 <- update(h11.3, newdata = h,
+                formula = deaths ~ 1 + femininity + log_damage + min_pressure_std +
+                femininity:log_damage + femininity:min_pressure_std)
+
+h11.10 <- update(h11.3, newdata = h,
+                formula = deaths ~ 1 + femininity + damage_norm + min_pressure_std +
+                femininity:damage_norm + femininity:min_pressure_std)
+#waic
+waic(h11.8, h11.9, h11.10)
+
+
+#weights
+model_weights(h11.8, h11.9, h11.10, 
+              weights = "waic") %>% 
+  round(digits = 2)
+
+```
+
+Because I had estimated the original model with damage standardized, I estimated two new models here: h11.9 which used log(damage) and h11.10, which used damage_norm as it was initially scaled, to compare the fits across multiple scales of the damage variable. 
+
+The WAIC for the model with log damage (h11.9) was the lowest, much lower than the model with damage untransformed (h11.10), and slightly lower than the model with damage standardized (h11.8). Indeed, the model with log damage also received all of the weight. 
+
+```{r}
+fixef(h11.8) %>% round(digits = 2)
+
+fixef(h11.9) %>% round(digits = 2)
+```
+
+Interestingly, the model with log damage now has a positive main effect estimate for the log damage term that has a 95% interval that doesn't contain zero. Previously, the coefficient for the main effect of damage standardized was negative and had a very large 95% interval that did contain 0 (-0.99, 0.74). Another difference between the two models is that in the new model with log damage, the estimate for the effect of minimum pressure is now 0. Additionally, while the interaction between femininity and log damage is still positive, its 95% interval also contains 0. Perhaps most strikingly, the main effect of femininity is now *negative* although the 95% interval does contain 0. 
+
+To better understand the model estimates, the interactions between femininity and minimum pressure and femininity and log damage are presented below. 
+
+
+```{r}
+min_press_seq <- seq(from = -2, to = 2, by = 0.1)
+
+  #making feminine and masculine data
+  ndf <- tibble(log_damage = mean(h$log_damage), min_pressure_std = min_press_seq,
+                femininity = quantile(h$femininity, 0.9))
+  ndm <- tibble(log_damage = mean(h$log_damage), min_pressure_std = min_press_seq,
+                femininity = quantile(h$femininity, 0.1))
+  
+  #getting fitted results for each of our new data
+  fitd_f <- 
+    fitted(h11.9, 
+           newdata = ndf,
+           probs = c(0.045, 0.945)) %>%
+    as_tibble() %>%
+    bind_cols(ndf)
+  
+  fitd_m <- 
+    fitted(h11.9, 
+           newdata = ndm,
+           probs = c(0.045, 0.945)) %>% 
+    as_tibble() %>% 
+    bind_cols(ndm)
+  
+  # making plot
+  fig <- 
+    ggplot() +
+    geom_ribbon(data = fitd_f, 
+                aes(x    = min_pressure_std,
+                    ymin = Q4.5,
+                    ymax = Q94.5), 
+                fill = "red", alpha = 1/5) +
+    geom_line(data = fitd_f, 
+              aes(x = min_pressure_std, y = Estimate), 
+              color = "red") +
+    geom_ribbon(data = fitd_m, 
+                aes(x    = min_pressure_std,
+                    ymin = Q4.5,
+                    ymax = Q94.5), 
+                fill = "blue", alpha = 1/5) +
+    geom_line(data = fitd_m, 
+              aes(x = min_pressure_std, y = Estimate), 
+              color = "blue")+
+    scale_x_continuous("Min Pressure (Standardized)", breaks = c(-2, -1, 0, 1, 2)) +
+    coord_cartesian(xlim = -2:2) +
+    labs(title = "Femininity - Minimum Pressure interaction",
+         subtitle = "High femininity in red; Low femininity (more masculine) in blue\neverything else held at its mean")
+  
+  plot(fig)
+```
+
+While the overall slightly negative trend between minimum pressure and death estimate remained the same for both names with high and low femininity, now there is very little difference in the estimates between hurricanes with names that are either high or low in femininity as minimum pressure increases. In the model that used standardized damage instead of log damage, it predicted that at low minimum pressure, masculine named hurricanes had a higher death estimate than feminine and vice versa at high minimum pressure. This is no longer the case in the predictions from the model with log damage. 
+
+```{r}
+#plotting opposite way
+damage_seq <- seq(from = min(h$log_damage), to = max(h$log_damage), by = 0.01)
+
+  ndf <- tibble(log_damage = damage_seq, min_pressure_std = 0,
+                femininity = quantile(h$femininity, 0.9))
+  ndm <- tibble(log_damage = damage_seq, min_pressure_std = 0,
+                femininity = quantile(h$femininity, 0.1))
+  
+  fitd_f <- 
+    fitted(h11.9, 
+           newdata = ndf,
+           probs = c(0.045, 0.945)) %>%
+    as_tibble() %>%
+    bind_cols(ndf)
+  
+  fitd_m <- 
+    fitted(h11.9, 
+           newdata = ndm,
+           probs = c(0.045, 0.945)) %>% 
+    as_tibble() %>% 
+    bind_cols(ndm)
+  
+  #plot
+  fig <- 
+    ggplot() +
+    geom_ribbon(data = fitd_f, 
+                aes(x    = log_damage,
+                    ymin = Q4.5,
+                    ymax = Q94.5), 
+                fill = "red", alpha = 1/5) +
+    geom_line(data = fitd_f, 
+              aes(x = log_damage, y = Estimate), 
+              color = "red") +
+    geom_ribbon(data = fitd_m, 
+                aes(x    = log_damage,
+                    ymin = Q4.5,
+                    ymax = Q94.5), 
+                fill = "blue", alpha = 1/5) +
+    geom_line(data = fitd_m, 
+              aes(x = log_damage, y = Estimate), 
+              color = "blue")+
+    labs(title = "Femininity - Damage Interaction",
+         subtitle = "High femininity in red; Low femininity (more masculine) in blue\neverything else held at its mean",
+         x = "Log Damage")
+  
+  plot(fig)
+```
+
+Similarly, the difference in hurricanes with names high in femininity and low in femininity as log damage increases is much less drastic than it was in the previous model's estimates. It does appear that at very high levels of log damage, highly feminine-named hurricanes have a higher estimated death toll, but the effect is not very large at all. 
+
+Overall, I believe that there is not a relationship between femininity and deaths of hurricanes. While initial analyses did find an effect, accounting for overdispersion and correctly scaling parameters reduced these effects enough such that the estimate for the effect of femininity included 0 in its 95% confidence interval, and even the relationships between the log amount of damage and femininity as well as minimum pressure and femininity did not show a large difference between feminine and masculine named hurricanes. 
+
+####11H5  
+```{r}
+data("Trolley")
+t <- Trolley
+t <- t %>% mutate(edbin = ifelse(edu == "High School Graduate" |
+                                 edu == "Some College"|
+                                 edu == "Bachelor's Degree" |
+                                 edu == "Master's Degree" |
+                                 edu == "Graduate Degree", 1, 0))
+
+inits <- list(`Intercept[1]`      = -1.9,
+              `Intercept[2]`      = -1.2,
+              `Intercept[3]`      = -0.7,
+              `Intercept[4]`      =  0.2,
+              `Intercept[5]`      =  0.9,
+              `Intercept[6]`      =  1.8,
+               contact            =  0,
+               male               =  0,
+              `contact:male` =  0)
+
+h11.11 <- brm(data = t, family = cumulative,
+          response ~ 1 + contact + male + contact:male,
+          prior = c(prior(normal(0, 10), class = Intercept),
+                    prior(normal(0, 10), class = b)),
+          iter = 2000, warmup = 1000, cores = 2, chains = 2,
+          inits = list(inits, inits))
+
+# Start values for h11.12
+inits <- list(`Intercept[1]`      = -1.9,
+              `Intercept[2]`      = -1.2,
+              `Intercept[3]`      = -0.7,
+              `Intercept[4]`      =  0.2,
+              `Intercept[5]`      =  0.9,
+              `Intercept[6]`      =  1.8,
+              contact             =  0,
+              age                 = 0,
+              edbin                = 0,
+              `contact:intention` =  0)
+
+h11.12 <- update(h11.11, newdata = t,
+                 formula = response ~ 1 + contact + male + contact:male + age + edbin,
+                 inits = list(inits, inits))
+
+#start values for h11.13
+inits <- list(`Intercept[1]`      = -1.9,
+              `Intercept[2]`      = -1.2,
+              `Intercept[3]`      = -0.7,
+              `Intercept[4]`      =  0.2,
+              `Intercept[5]`      =  0.9,
+              `Intercept[6]`      =  1.8,
+              action              =  0,
+              intention           =  0,
+              contact             =  0,
+              age                 = 0,
+              edbin                = 0,
+              `contact:intention` =  0)
+
+h11.13 <- update(h11.11, newdata = t,
+                 formula = response ~ 1 + contact + male + contact:male + age + edbin +
+                           intention + action)
+
+#waic
+waic(h11.11, h11.12, h11.13)
+
+#weights
+model_weights(h11.11, h11.12, h11.13, 
+              weights = "waic") %>% 
+  round(digits = 2)
+```
+
+One hypothesis of gender differences in moral reasoning suggests that women are more morally-averse to inflicting harm (or more morally concerned with care) than men are. To assess this hypothesis, cumulative logit models were estimated assessing the relationship between gender, contact, gender*contact, and the likelihood of each response on a likert scale from 1-7 with lower numbers indicating less moral acceptability. Model h11.11 has only these variables, while h11.12 adds some control variables (age and a binary variable indicating whether or not a respondent graduated from high school), and the third adds both intention and action to the model with the other variables to account for the possibility that other aspects of the moral narrative affect the effect of contact and response. 
+
+According to the WAIC values, model h11.13, the one with the contact, gender, controls, and intention and action, fit the data best. Correspondingly, it received all of the weight. Consequently, this model will be the one used to evaluate the relationship between gender, contact, and moral acceptability. 
+
+```{r}
+fixef(h11.13) %>% round(digits = 2)
+
+```
+
+The main effect of contact is negative, and its 95% interval does not contain zero, which matches what we'd expect: a version of the trolley problem including direct contact is expected to decrease the moral acceptability by 0.86 points on the likert scale. The main effect for male is positive, and its 95% interval also does not contain zero. This suggests that men generally find trolley problem questions more morally permissible than women by 0.6 points on the scale. The interaction between contact and male is negative, and its 95% interval similarly does not contain zero. Interestingly, this suggests the opposite relationship than the hypothesis: there is a stronger relationship for men than women in the decrease of moral permissibility of a trolley problem vignette when the vignette includes contact.  
+
+This interaction is depicted below, using the mean response across genders to help with visualization.
+
+```{r}
+#function to get the data needed for plot when male or female
+plot_data <- function(male, max_iter){
+  
+  nd <-
+    tibble(contact    = c(0, 1),
+           male   = male, 
+           intention = 0,
+           action = 0,
+           edbin = 1,
+           age = mean(t$age))
+  
+  max_iter <- max_iter
+  
+  fitted(h11.13, 
+         newdata = nd, 
+         subset  = 1:max_iter,
+         summary = F) %>% 
+    as_tibble() %>%
+    gather() %>%
+    mutate(iter = rep(1:max_iter, times = 14)) %>%
+    select(iter, everything()) %>% 
+    separate(key, into = c("contact", "rating")) %>% 
+    mutate(contact = contact %>% as.double(),
+           rating    =  rating %>% as.double()) %>%
+    mutate(contact = contact -1) %>%
+    rename(pk = value) %>% 
+    mutate(`pk:rating` = pk * rating) %>% 
+    group_by(iter, contact) %>% 
+    
+    summarise(mean_rating = sum(`pk:rating`))
+}
+
+p1 <- plot_data(male = 1,
+                max_iter = 100)
+
+p2 <- plot_data(male = 0,
+                max_iter = 100) 
+
+ggplot(data = p1, mapping = aes(x = contact, y = mean_rating, group = iter)) +
+       geom_line(alpha = 0.2, color = "blue") +
+       geom_line(data = p2, mapping = aes(x = contact, y = mean_rating, group = iter),
+                 alpha = 0.2, color = "red") +
+       labs(title = "Interaction - Gender and Contact",
+            x = "contact",
+            y = "mean rating")
+
+```
+
+While women do find vignettes with contact less morally acceptable than men do, the slope of the line is flatter. There is less of a decrease in acceptability of a trolley problem associated with the inclusion of contact than there is for men. This suggests that men actually have a more strongly negative moral perception of the acceptability of harm. 
+
+####11H6  
+```{r}
+data(Fish)
+f <- Fish
+
+f <- f %>% mutate(log_hours = log(hours)) 
+
+h11.14 <- 
+  brm(data = f, family = zero_inflated_poisson,
+      bf(fish_caught ~ 1 + livebait + offset(log_hours), zi ~ persons),
+      prior = c(prior(normal(0, 10), class = Intercept),
+                prior(normal(0, 10), class = b)),
+      cores = 4)
+
+h11.15 <- update(h11.14, newdata = f,
+                 formula. = bf(fish_caught ~ 1 + livebait + offset(log_hours), zi ~ child ))
+
+
+h11.16 <- update(h11.14, newdata = f,
+                 formula. = bf(fish_caught ~ 1 + livebait + offset(log_hours), 
+                               zi ~ child + persons))
+
+h11.17 <- 
+  brm(data = f, family = zero_inflated_poisson,
+      bf(fish_caught ~ 1 + livebait + child + persons + offset(log_hours), 
+         zi ~ persons),
+      prior = c(prior(normal(0, 10), class = Intercept),
+                prior(normal(0, 10), class = b)),  # the brms default is beta(1, 1)
+      cores = 4)
+
+h11.18 <- update(h11.17, newdata = f,
+                 formula = bf(fish_caught ~ 1 + livebait + child + persons + offset(log_hours), 
+                              zi ~ persons + child))
+
+waic(h11.14, h11.15, h11.16, h11.17, h11.18)
+
+#weights
+model_weights(h11.14, h11.15, h11.16, h11.17, h11.18,
+              weights = "waic") %>% 
+  round(digits = 2)
+
+```
+
+In assessing the number of fish an average visitor catches per hour in the national park, a zero-inflated model should be estimated because not every visitor even attempted fishing. To fit this model, I ran a few combinations of different predictors and then assessed the model fit across possible models. I chose model h11.17 to evaluate estimates becase it had the highest weight and lowest WAIC. 
+
+```{r}
+
+fixef(h11.17) %>% round(digits = 2)
+
+```
+
+To interpret the estimates for the log link portion of the zero-inflated Poisson, we can exponentiate the estimates. We expect that a child being present increases the rate of fish caught by `r exp(0.49) * 100 %>% round(digits = 2)` percent. For each person included in a group, we expect that the rate of fish caught to increase by `r exp(0.66) * 100 %>% round(digits = 2)` percent. Additionally, the model predicts that using live bait increases the rate of fish caught by `r exp(1.48) * 100 %>% round(digits = 2)` percent. 
+
+The portion of the zero-inflated Poisson that predicts the probability of a person not fishing are the estimates beginning with zi. The model predicts that a group with 1 person does not fish `r logistic(0.89-1.04) * 100 %>% round(digits = 2)` percent of the time. With 2 people, the group has a probability of `r logistic(0.89-(2*1.04)) %>% round(digits = 2)`of not fishing. 
+
+To visualize these relationships, the marginal effects are plotted below. 
+
+Marginal effects:
+```{r}
+plot(marginal_effects(h11.17), ask = FALSE)
+
+```
+
+
+

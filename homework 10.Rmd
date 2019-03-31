@@ -1,0 +1,297 @@
+---
+title: "Homework Chapter 10"
+author: "Emily Maloney"
+date: "March 17, 2019"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, message = FALSE, warning = FALSE}
+library(tidyverse)
+library(brms)
+library(rethinking)
+library(MASS)
+```
+
+
+## Chapter 10 Homework   
+
+###Easy Problems  
+
+####10E1  
+```{r}
+prob <- 0.35
+odds <- prob/(1 - prob)
+logodds <- log(odds)
+```
+
+The log-odds of an event with 0.35 probability is `r logodds`.  
+
+####10E2
+```{r}
+logodds <- 3.2
+odds <- exp(logodds)
+prob <- odds/(1+odds)
+```
+The probability of an event with log-odds 3.2 is `r prob`. 
+
+####10E3
+```{r}
+logodds <- 1.7
+odds <- exp(logodds)
+```
+If a coefficient in a logistic regression has a value of 1.7, this implies that the proportional increase in odds of the outcome is `r odds`.   
+
+####10E4
+Poisson regressions sometimes require the use of an offset because there can be different amounts of exposure across cases. Adding the logarithm of the exposure to the linear model effectively accounts for this. An example might be if you're modeling the number of times a student speaks in class by gender, you should include an offset term that accounts for attendance rate in class. 
+
+###Medium Problems  
+
+####10M1  
+When the data is aggregated in a binomial model, the likelihood needs to account for the fact that the ordering of the aggregated trials could happen in a number of different ways. To do this, the likelihood for the aggregated binomial has a coefficient indiciating the multiplicity of the aggregation. It does not for the disaggregated binomial, because there is only one way to order a single trial.  
+
+####10M2  
+```{r}
+exp(1.7)
+```
+A coefficient in a Poisson regression with a value of 1.7 indicates that the odds of the outcome are `r exp(1.7) %>% round(digits = 2)` times greater.  
+
+####10M3  
+The logit link is appropriate for the binomial generalized linear model because the logit function effectively limits the outcome to be between 0 and 1, which means that the model's estimate of the probability will remain within appropriate bounds. You can't have a negative probability of an event occuring or a probability of an event occuring that is greater than one. The logit link ensures that estimates will fall within these bounds. 
+
+####10M4  
+The log link is appropriate for the Poisson generalized linear model because the log function bounds the lower limit at 0. Because the Poisson distribution is used with a count outcome with an unknown maximum, ensuring that the model does not consider negative counts but doesn't limit the upper bound is required.   
+
+####10M5  
+Using a logit link for the mean of a Poisson generalized linear model would imply that you had a theoretically-motivated reason to believe that the upper bound of the count needs to be limited at some value.  
+
+####10M6  
+The constraints for which the binomial distribution has maximum entropy are that there are only two unordered events and that the expected value is constant. The constraints for which the Poisson distribution has maximum entropy are also that there are only two unordered events and that the expected value is constant. The constraints are the same because the Poisson distribution is a special case of the binomial distribution in which probability of the event is small and number of trials is large or unknown. 
+
+###Hard Problems  
+  
+####10H1  
+```{r}
+data("chimpanzees")
+d <- chimpanzees
+
+#map approximation
+h10.1 <- map(
+         alist(
+           pulled_left ~ dbinom(1, p),
+           logit(p) <- a[actor] + (bp + bpC*condition)*prosoc_left,
+           a[actor] ~ dnorm(0, 10),
+           bp ~ dnorm(0, 10),
+           bpC ~ dnorm(0, 10)
+         ),
+         data = d
+)
+
+
+#using MCMC
+h10.2 <-
+  brm(data = d, family = binomial,
+      pulled_left | trials(1) ~ 0 + factor(actor) + prosoc_left + condition:prosoc_left ,
+      prior(normal(0, 10), class = b),
+      iter = 2500, warmup = 500, chains = 2, cores = 2,
+      control = list(adapt_delta = 0.9))
+
+precis(h10.1, depth = 2)
+fixef(h10.2) %>% round(digits = 2)
+```
+
+The primary difference between the estimates from the quadratic approximation and the model that used MCMC to produce the estimates is the intercept for actor 2. In the quadratic approximation, the intercept is 11.05 while in the MCMC model, the intercept is 10.96. In the data actor 2 pulled the left lever every time, skewing the posterior distribution. Since the quadratic approximation assumes that the posterior distributions are multivariate Gaussian, it underestimates the intercept for this actor. MCMC does not have this assumption, meaning that it can capture the skew of actor 2's posterior distribution more effectively. This results in an increased intercept in comparison to the quadratic approximation estimate. 
+
+The fact that most of the other estimates are very similar to each other in the model estimated using the quadratic approximation and the MCMC model indicates that these other posterior distributions are not skewed and meet the multivariate Gaussian assumption required by the quadratic approximation.  
+
+####10H2
+```{r}
+
+#simpler models
+h10.3 <-
+  brm(data = d, family = binomial,
+      pulled_left | trials(1) ~ 1,
+      prior(normal(0, 10), class = Intercept))
+
+h10.4 <-
+  brm(data = d, family = binomial,
+      pulled_left | trials(1) ~ 1 + prosoc_left,
+      prior = c(prior(normal(0, 10), class = Intercept),
+                prior(normal(0, 10), class = b)))
+
+h10.5 <-
+  update(h10.4,
+         newdata = d,
+         formula = pulled_left | trials(1) ~ 1 + prosoc_left + condition:prosoc_left)
+
+waic(h10.2, h10.3, h10.4, h10.5)
+```
+
+The model including the unique intercepts for each actor (h10.2) has the lowest WAIC by far - more than 150 points lower than the second best model (h10.4). The other three models are fairly similar to each other, with the model including an interaction between condition and prosocial_left (h10.5) having a slightly higher WAIC than the h10.4, which does not have an interaction term. This indicates that the benefit from including the interaction term is not signficant enough to counteract the penalty from adding another term to the model. Unsurprisingly, the model with only an intercept has the highest WAIC of all of the models. 
+
+####10H3
+
+####a)
+```{r}
+data("eagles")
+e <- eagles
+
+e <- e %>% mutate(P = ifelse(P == "L", 1, 0),
+                  A = ifelse(A == "A", 1, 0),
+                  V = ifelse(V == "L", 1, 0))
+
+h10.6 <- map(
+         alist(
+           y ~ dbinom(n, p),
+           logit(p) <- a + bp*P + bv*V + ba*A,
+           a ~ dnorm(0, 10),
+           bp ~ dnorm(0, 5),
+           bv ~ dnorm(0, 5),
+           ba ~ dnorm(0, 5)
+         ),
+         data = e,
+         method="Nelder-Mead" , control=list(maxit=1e4) 
+)
+
+h10.7 <-
+  brm(data = e, family = binomial,
+     y | trials(n) ~ 1 + P + V + A,
+      c(prior(normal(0, 10), class = Intercept),
+                prior(normal(0, 5), class = b)),
+      iter = 2500, warmup = 500, chains = 2, cores = 2)
+
+precis(h10.6, depth = 2)
+fixef(h10.7) %>% round(digits = 2)
+```
+
+The estimates for the coefficients produced by each model are similar, but not close enough to not warrant looking into the posterior distributions of the coefficients. In particular, the estimate for the coefficients for P is about 0.5 points greater in the MCMC model than the map model, and similarly the coefficient for V is about 0.5 points lower in the MCMC model than the estimate generated by the map model. 
+
+```{r}
+pairs(h10.6)
+pairs(h10.7)
+```
+
+Looking at the pairs plot for the model estimated using MCMC (h10.7), the posterior distributions for b_P and b_V exhibit right skew and left skew, respectively. This indicates that using the quadratic approximation is not okay, because the assumption of multivariate Gaussian posterior distributions is not met.   
+
+####b) 
+
+```{r}
+ftd <-
+  fitted(h10.7, probs = c(0.055, 0.945)) %>% 
+  as_tibble() %>% 
+  bind_cols(h10.7$data)
+
+ftd <- ftd %>% mutate(prob = Estimate/n,
+                      probl = Q5.5/n,
+                      probh = Q94.5/n)
+
+ftd <- mutate(ftd, id = rownames(ftd)) %>% mutate(actual = e$y,
+                                                  actualp = actual/n)
+
+ggplot(data = ftd, mapping = aes(x = id, y = prob)) +
+        geom_linerange(mapping = aes(ymin = probl, ymax = probh), color = "gray") +
+        geom_point() +
+        geom_point(mapping = aes(x = id, y = actualp), color = "forest green") +
+        labs(title = "Predicted probability of success",
+        subtitle = "actual proportion of success in green",
+        x = "Eagle number", y = "Predicted probability") 
+
+
+ggplot(data = ftd, mapping = aes(x = id, y = Estimate)) + 
+        geom_linerange(mapping = aes(ymin = Q5.5, ymax = Q94.5), color = "gray") +
+        geom_point() +
+        geom_point(mapping = aes(x = id, y = actual), color = "forest green") +
+        labs(title = "Predicted success counts",
+        subtitle = "actual number of successes in green",
+        x = "Eagle number", y = "Predicted probability") 
+
+```
+
+The plot of the predicted probability of success indicates how likely it is for each eagle to succeed on any given trial. This information can be easily compared across the eagles, such that both eagle 2 and 4 have a predicted probability of 1, even though the counts in the data were 29 and 20, respectively, because the probability estimate took into account the number of attempts each eagle had. This plot shows how effective each eagle is at pirating other eagles' food.
+
+The plot of predicted success counts shows how many successful trials we predict, given the number of trials they completed. This means that the predicted success count for eagle 2 and 4 are different, even though they have the same probability of success, because each has a different number of trials. Similarly, the estimate for the probability of success for eagle 8 is fairly high, but the predicted count is much lower, considering that this eagle only attempted to pirate 4 times. This plot shows how many times we would expect each eagle to pirate another eagle's food successfully. 
+
+####c)
+```{r}
+h10.8 <-
+  update(h10.7,
+         newdata = e,
+         formula = y | trials(n) ~ 1 + P + V + A + P:A)
+
+waic(h10.7, h10.8)
+
+```
+
+The WAIC in the model with the interaction (h10.8) is lower than the WAIC for the model without the interaction (h10.7) by about 10 points, indicating that this model performs better. 
+
+####10H4
+```{r}
+data("salamanders")
+s <- salamanders
+
+h10.9 <- 
+  map( alist( SALAMAN ~ dpois( lambda ), 
+              log(lambda) <- a + bp*PCTCOVER, 
+              a ~ dnorm(0,10), 
+              bp ~ dnorm(0,5) ), data=s )
+
+h10.10 <-
+  brm(data = s, family = poisson,
+     SALAMAN ~ 1 + PCTCOVER,
+      c(prior(normal(0, 10), class = Intercept),
+                prior(normal(0, 5), class = b)),
+      iter = 2500, warmup = 500, chains = 2, cores = 2)
+
+precis(h10.9, depth = 2)
+fixef(h10.10) %>% round(digits = 2)
+```
+
+The estimates generated by the map model and the MCMC model are different, indicating that we should check the posterior distributions to see if the multivariate Gaussian assumption is not met. 
+
+```{r}
+pairs(h10.9)
+pairs(h10.10)
+```
+
+Indeed, the posterior distributions for both the intercept and percent cover both exhibit skew. Therefore, we should use the MCMC model and not the map model. 
+
+```{r}
+ftd <-
+  fitted(h10.10, probs = c(0.055, 0.945)) %>% 
+  as_tibble() %>% 
+  bind_cols(h10.10$data)
+
+ggplot(data = ftd, mapping = aes(x = PCTCOVER, y = Estimate)) + geom_line(color = "black") +
+       geom_line(mapping = aes(x = PCTCOVER, y = Q94.5), color = "gray") +
+       geom_line(mapping = aes(x = PCTCOVER, y = Q5.5), color = "gray") +
+       geom_point(mapping = aes(x = PCTCOVER, y = SALAMAN), color = "forestgreen") + 
+       labs(title = "Expected Counts (Lambda)",
+       subtitle = "89% PI in gray; actual counts in green",
+       x = "Percent of ground cover", y = "Estimate") 
+
+```
+
+The model does a good job estimating expected counts when the percent of ground cover is less than 50%, but fails to capture the range of data points when percent of ground cover is high, with much of the data falling both above and below the 89% interval. This appears to be because there is less of a consistent relationship between percent of ground cover and expected count when the percent of ground cover is high. Perhaps including the forestage variable will improve the model fit.  
+
+####b)
+
+```{r}
+
+h10.11 <- update(h10.10,
+                 newdata = s,
+                 formula = SALAMAN ~ 1 + PCTCOVER + FORESTAGE)
+
+h10.12 <- update(h10.10,
+                 newdata = s,
+                 formula = SALAMAN ~ 1 + PCTCOVER + FORESTAGE + PCTCOVER:FORESTAGE)
+
+waic(h10.10, h10.11)
+```
+
+I estimated models in which expected count is predicted by forest age and percent cover together (h10.11), and by forest age, precent cover, and an interaction between the two (h10.12). The model with the interaction term returns an infinite WAIC, so I did not include it in the model comparision, only evaluating h10.11 against the model with just percent cover (h10.10). Interestingly, the model with both forest age and percent cover has a higher WAIC than the model with just percent cover. This indicates that these two variables are likely explaining the same part of the variance in expected count, so including both in the model does add enough explanatory power to overcome the penalty for including another term. 
+
